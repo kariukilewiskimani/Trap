@@ -1,11 +1,12 @@
 from django.urls import path
 from . import views
+from django.contrib.auth import views as auth_views
 
 app_name = 'musa'
 
 urlpatterns = [
     path('signup', views.signup, name='signup'),
-    path('login', views.signin, name='login'),
+    path('login', auth_views.LoginView.as_view(), name='login'),
     path('logout', views.logout_user, name='logout'),
     path('', views.index, name='index'),
     path('(?P<album_id>[0-9]+)/', views.detail, name='detail'),

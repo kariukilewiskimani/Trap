@@ -4,22 +4,38 @@ from .forms import AlbumForm, SongForm, UserForm
 from django.views.generic import UpdateView
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 
 
 # Create your views here.
 
-#@ login_required(login_url='musa:login')
+@ login_required(login_url='musa:login')
 def index(request):
-    albums = Album.objects.all()
-    return render(request, 'musa/index.html', {'albums': albums})
+    albums = Album.objects.filter(user=request.user)
+    song_results = Song.objects.all()
+    query = request.GET.get("q")
+    if query:
+        albums = albums.filter(
+            Q(album_name_icontains=query) |
+            Q(artist_name_icontains=query)
+        ).distinct()
+        song_results = song_results.filter(
+            Q(song_name_icontains=query)
+        ).distinct()
+    return render(request, 'musa/index.html', {
+        'albums': albums,
+        'songs': song_results
+    })
 
 def detail(request, album_id):
     album = get_object_or_404(Album, pk=album_id)
+
     return render(request, 'musa/detail.html', {'album': album})
 
 def create_album(request):
     form = AlbumForm(request.POST or None, request.FILES or None)
     if form.is_valid():
+        albums = Album.objects.filter(user=request.user)
         albums = Album.objects.all()
         for album in albums:
             if album.album_name == form.cleaned_data.get('album_name'):
@@ -30,8 +46,9 @@ def create_album(request):
                 return render(request, 'musa/create_album.html', context)
         album = form.save(commit=False)
         album.album_cover = request.FILES['album_cover']
+        album.user = request.user
         album.save()
-        return render(request, 'musa/detail.html', {'album': album})
+        return render(request, 'musa/index.html', {'album': album})
     return render(request, 'musa/create_album.html', {'form': form})
 
 class AlbumUpdateView(UpdateView):
@@ -91,23 +108,23 @@ def signup(request):
                 login(request, user)
                 return redirect('musa:index')
     return render(request, 'registration/signup.html', {'form': form})
-
+"""
 def signin(request):
     if request.method == 'POST':
-        email = request.POST['email']
+        username = request.POST['username']
         password = request.POST['password']
-        user = authenticate(email=email, password=password)
+        user = authenticate(username=username, password=password)
         if user is not None:
             if user.is_active:
                 login(request, user)
                 return redirect('musa:index')
 
     return render(request, 'registration/login.html')
-
+"""
 def logout_user(request):
     logout(request)
     context = {
         'message': 'Successfully Logged Out!'
     }
-    return render(request, 'registration/login.html', context)
+    return redirect('musa:login')
 
